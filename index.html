@@ -1,0 +1,744 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="theme-color" content="#111111" />
+<link rel="manifest" href="manifest.webmanifest" />
+<title>Печать наклеек A4</title>
+<style>
+  :root {
+    --page-w: 210mm;
+    --page-h: 297mm;
+    --label-w: 97.5mm;
+    --label-h: 68mm;
+    --radius: 7mm;
+    --offset-x: 0mm;
+    --offset-y: 0mm;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: Arial, "Segoe UI", sans-serif;
+    color: #171717;
+    background: #eceff1;
+  }
+  .app {
+    display: grid;
+    grid-template-columns: minmax(760px, 1fr) 360px;
+    gap: 22px;
+    min-height: 100vh;
+    padding: 22px;
+    align-items: start;
+  }
+  .workspace {
+    min-width: 0;
+  }
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+  .title {
+    margin: 0;
+    font-size: 22px;
+    font-weight: 800;
+  }
+  .hint {
+    font-size: 13px;
+    color: #666;
+  }
+  .sheet-wrap {
+    width: min(100%, 900px);
+    overflow: auto;
+    padding: 18px;
+    background: #dfe3e6;
+    border-radius: 14px;
+  }
+  .sheet {
+    position: relative;
+    width: var(--page-w);
+    height: var(--page-h);
+    margin: 0 auto;
+    background: #fff;
+    box-shadow: 0 4px 24px rgba(0,0,0,.18);
+    transform-origin: top left;
+  }
+  .label {
+    position: absolute;
+    width: var(--label-w);
+    height: var(--label-h);
+    border: .35mm solid #b9bec3;
+    border-radius: var(--radius);
+    background: #fff;
+    cursor: pointer;
+    overflow: hidden;
+    transition: border-color .12s, box-shadow .12s, background .12s;
+  }
+  .label:hover { border-color: #777; }
+  .label.selected {
+    border-color: #111;
+    box-shadow: inset 0 0 0 .45mm #111;
+  }
+  .label-content {
+    position: absolute;
+    inset: 0;
+    padding: 4mm;
+    display: grid;
+    grid-template-columns: 31mm 1fr;
+    column-gap: 3mm;
+    align-items: stretch;
+    transform: translate(var(--offset-x), var(--offset-y));
+  }
+  .initial-box {
+    min-width: 0;
+    min-height: 0;
+    position: relative;
+    overflow: hidden;
+  }
+  .initial-svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+  }
+  .initial {
+    font-family: "Arial Black", Arial, "Segoe UI", sans-serif;
+    font-weight: 900;
+    dominant-baseline: alphabetic;
+  }
+  .info {
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 1.4mm;
+    overflow: hidden;
+    padding-right: 1mm;
+  }
+  .surname {
+    display: block;
+    font-size: 7.3mm;
+    line-height: 1;
+    font-weight: 900;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .name {
+    display: block;
+    font-size: 6.2mm;
+    line-height: 1.05;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .order {
+    display: block;
+    font-size: 5.4mm;
+    line-height: 1.05;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .date {
+    display: block;
+    font-size: 4.9mm;
+    line-height: 1.05;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .label-number {
+    position: absolute;
+    top: 2mm;
+    right: 3mm;
+    z-index: 5;
+    font-size: 3.4mm;
+    line-height: 1;
+    font-weight: 800;
+    color: #8a8f94;
+    pointer-events: none;
+    user-select: none;
+  }
+  .label.empty .label-number {
+    top: 50%;
+    left: 50%;
+    right: auto;
+    transform: translate(-50%, -50%);
+    font-size: 5mm;
+    color: #8a8f94;
+    white-space: nowrap;
+  }
+  /* The on-screen helper name disappears as soon as a label is selected
+     or contains real data. It is never part of the printable content. */
+  .label.selected .label-number,
+  .label.has-data .label-number {
+    display: none !important;
+  }
+
+  .panel {
+    background: #fff;
+    border-radius: 14px;
+    padding: 18px;
+    box-shadow: 0 2px 12px rgba(0,0,0,.08);
+    position: sticky;
+    top: 18px;
+  }
+  .panel h2 {
+    margin: 0 0 4px;
+    font-size: 19px;
+  }
+  .selected-label {
+    font-size: 13px;
+    color: #666;
+    margin-bottom: 15px;
+  }
+  .field { margin-bottom: 12px; }
+  .field label {
+    display: block;
+    margin-bottom: 5px;
+    font-size: 13px;
+    font-weight: 700;
+  }
+  input {
+    width: 100%;
+    height: 40px;
+    border: 1px solid #c7ccd1;
+    border-radius: 8px;
+    padding: 0 11px;
+    font-size: 15px;
+    outline: none;
+    background: #fff;
+  }
+  input:focus { border-color: #222; box-shadow: 0 0 0 2px rgba(0,0,0,.06); }
+  .row2 { display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
+  .auto-note { font-size: 11px; color: #747474; margin-top: 4px; }
+  .font-controls {
+    margin-top: 4px;
+    padding: 12px;
+    border: 1px solid #e4e7ea;
+    border-radius: 10px;
+    background: #fafbfc;
+  }
+  .font-controls-title {
+    font-size: 13px;
+    font-weight: 800;
+    margin-bottom: 10px;
+  }
+  .font-row {
+    display: grid;
+    grid-template-columns: 1fr 88px;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 9px;
+  }
+  .font-row:last-child { margin-bottom: 0; }
+  .font-row label {
+    margin: 0;
+    font-size: 12px;
+    font-weight: 700;
+  }
+  .font-row input {
+    height: 36px;
+    text-align: center;
+    padding: 0 6px;
+  }
+  .buttons { display: grid; gap: 9px; margin-top: 14px; }
+  button {
+    height: 43px;
+    border: 0;
+    border-radius: 9px;
+    font-size: 14px;
+    font-weight: 800;
+    cursor: pointer;
+  }
+  .primary { background: #111; color: #fff; }
+  .secondary { background: #e9ecef; color: #111; }
+  .danger { background: #f2f2f2; color: #a00000; }
+  button:active { transform: translateY(1px); }
+  details {
+    margin-top: 15px;
+    border-top: 1px solid #ececec;
+    padding-top: 12px;
+  }
+  summary { cursor: pointer; font-weight: 800; font-size: 13px; }
+  .calibration { margin-top: 12px; }
+  .small { font-size: 11px; color:#666; line-height:1.4; margin-top:8px; }
+  .status {
+    min-height: 20px;
+    margin-top: 10px;
+    font-size: 12px;
+    color: #555;
+  }
+  .print-help {
+    margin-top: 12px;
+    padding: 10px 11px;
+    border-radius: 8px;
+    background: #f5f6f7;
+    font-size: 12px;
+    line-height: 1.45;
+  }
+
+  /* Exact A4 positions: 5 mm margins and 5 mm gutters. */
+  .label[data-num="1"] { left:5mm; top:5mm; }
+  .label[data-num="2"] { left:107.5mm; top:5mm; }
+  .label[data-num="3"] { left:5mm; top:78mm; }
+  .label[data-num="4"] { left:107.5mm; top:78mm; }
+  .label[data-num="5"] { left:5mm; top:151mm; }
+  .label[data-num="6"] { left:107.5mm; top:151mm; }
+  .label[data-num="7"] { left:5mm; top:224mm; }
+  .label[data-num="8"] { left:107.5mm; top:224mm; }
+
+  @media (max-width: 1150px) {
+    .app { grid-template-columns: 1fr; }
+    .panel { position: static; }
+  }
+
+  @page { size: A4 portrait; margin: 0; }
+  @media print {
+    html, body {
+      width: 210mm;
+      height: 297mm;
+      margin: 0 !important;
+      padding: 0 !important;
+      background: #fff !important;
+      overflow: hidden;
+    }
+    .app { display:block; padding:0; margin:0; min-height:0; }
+    .topbar, .panel { display:none !important; }
+    .workspace { margin:0; padding:0; }
+    .sheet-wrap { padding:0; margin:0; background:transparent; width:210mm; overflow:visible; border-radius:0; }
+    .sheet { width:210mm; height:297mm; margin:0; box-shadow:none; }
+    .label {
+      border: none !important;
+      background: transparent !important;
+      box-shadow: none !important;
+      cursor: default;
+      overflow: visible;
+    }
+    .label-number { display:none !important; }
+    .label:not(.print-target) .label-content { visibility:hidden !important; }
+    .label.print-target .label-content { visibility:visible !important; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <main class="workspace">
+    <div class="topbar">
+      <div>
+        <h1 class="title">Печать наклеек A4</h1>
+        <div class="hint">8 наклеек · 2 × 4 · отступы и зазоры по 5 мм</div>
+      </div>
+    </div>
+    <div class="sheet-wrap">
+      <div class="sheet" id="sheet">
+        <!-- labels inserted by JS -->
+      </div>
+    </div>
+  </main>
+
+  <aside class="panel">
+    <h2>Выбранная наклейка</h2>
+    <div class="selected-label" id="selectedLabelText">Нажмите на нужную наклейку 1–8.</div>
+
+    <div class="field">
+      <label for="surnameInput">Фамилия</label>
+      <input id="surnameInput" autocomplete="off" placeholder="Например: Джафарова" />
+    </div>
+    <div class="field">
+      <label for="nameInput">Имя</label>
+      <input id="nameInput" autocomplete="off" placeholder="Например: Фарангиз" />
+    </div>
+    <div class="field">
+      <label for="orderInput">Номер заказа</label>
+      <input id="orderInput" autocomplete="off" placeholder="Например: 458721" />
+    </div>
+    <div class="field">
+      <label for="dateInput">Дата заказа</label>
+      <input id="dateInput" type="date" />
+      <div class="auto-note">Дата изначально пустая. Нажмите на календарь и выберите нужное число.</div>
+    </div>
+    <div class="field">
+      <label for="initialInput">Большая буква</label>
+      <input id="initialInput" maxlength="2" autocomplete="off" placeholder="Авто" />
+      <div class="auto-note">Берётся из фамилии, но можно заменить.</div>
+    </div>
+
+    <div class="font-controls">
+      <div class="font-controls-title">Размер текста выбранной наклейки</div>
+      <div class="font-row">
+        <label for="surnameSize">Фамилия, мм</label>
+        <input id="surnameSize" type="number" min="3" max="12" step="0.2" />
+      </div>
+      <div class="font-row">
+        <label for="nameSize">Имя, мм</label>
+        <input id="nameSize" type="number" min="3" max="12" step="0.2" />
+      </div>
+      <div class="font-row">
+        <label for="orderSize">№ заказа, мм</label>
+        <input id="orderSize" type="number" min="3" max="10" step="0.2" />
+      </div>
+      <div class="font-row">
+        <label for="dateSize">Дата, мм</label>
+        <input id="dateSize" type="number" min="3" max="10" step="0.2" />
+      </div>
+      <div class="auto-note">Размеры сохраняются отдельно для каждой наклейки.</div>
+    </div>
+
+    <div class="buttons">
+      <button class="secondary" id="saveBtn">Сохранить на наклейке</button>
+      <button class="primary" id="printBtn">Печатать весь лист</button>
+      <button class="danger" id="clearBtn">Очистить выбранную</button>
+    </div>
+
+    <details>
+      <summary>Калибровка печати</summary>
+      <div class="calibration row2">
+        <div class="field">
+          <label for="offsetX">X, мм</label>
+          <input id="offsetX" type="number" step="0.5" value="0" />
+        </div>
+        <div class="field">
+          <label for="offsetY">Y, мм</label>
+          <input id="offsetY" type="number" step="0.5" value="0" />
+        </div>
+      </div>
+      <div class="small">Если принтер уводит текст, например, на 2 мм вправо — поставьте X = -2. Значения сохраняются на этом компьютере.</div>
+    </details>
+
+    <button class="secondary" id="clearAllBtn" style="width:100%;margin-top:14px;">Очистить весь макет</button>
+
+    <div class="print-help">
+      Кнопка <b>«Печатать весь лист»</b> печатает все заполненные наклейки на их местах. Пустые не печатаются. В окне принтера: <b>A4</b>, масштаб <b>100%</b>, поля <b>нет/0</b>, колонтитулы <b>выключены</b>.
+    </div>
+    <div class="status" id="status"></div>
+  </aside>
+</div>
+
+<script>
+(() => {
+  const STORAGE_KEY = 'labelPrinterA4_v7_data';
+  const LEGACY_STORAGE_KEYS = ['labelPrinterA4_data','labelPrinterA4_v6_data','labelPrinterA4_v5_data','labelPrinterA4_v4_data','labelPrinterA4_v3_data','labelPrinterA4_v2_data','labelPrinterA4_v1_data'];
+  const SETTINGS_KEY = 'labelPrinterA4_v7_settings';
+  const LEGACY_SETTINGS_KEYS = ['labelPrinterA4_settings','labelPrinterA4_v6_settings','labelPrinterA4_v5_settings','labelPrinterA4_v4_settings','labelPrinterA4_v3_settings','labelPrinterA4_v2_settings','labelPrinterA4_v1_settings'];
+  const sheet = document.getElementById('sheet');
+  const surnameInput = document.getElementById('surnameInput');
+  const nameInput = document.getElementById('nameInput');
+  const orderInput = document.getElementById('orderInput');
+  const dateInput = document.getElementById('dateInput');
+  const initialInput = document.getElementById('initialInput');
+  const offsetX = document.getElementById('offsetX');
+  const offsetY = document.getElementById('offsetY');
+  const status = document.getElementById('status');
+  const selectedLabelText = document.getElementById('selectedLabelText');
+  const surnameSize = document.getElementById('surnameSize');
+  const nameSize = document.getElementById('nameSize');
+  const orderSize = document.getElementById('orderSize');
+  const dateSize = document.getElementById('dateSize');
+
+  let selected = null;
+  let labels = loadLabels();
+
+  function firstLetter(s) {
+    const clean = (s || '').trim();
+    if (!clean) return '';
+    return Array.from(clean)[0].toUpperCase();
+  }
+
+  function emptyData() {
+    return { surname:'', name:'', order:'', date:'', initial:'', surnameSize:7.3, nameSize:6.2, orderSize:5.4, dateSize:4.9 };
+  }
+
+  function loadLabels() {
+    try {
+      let raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) {
+        for (const key of LEGACY_STORAGE_KEYS) {
+          raw = localStorage.getItem(key);
+          if (raw) break;
+        }
+      }
+      const parsed = JSON.parse(raw || '{}');
+      const out = {};
+      for (let i=1;i<=8;i++) out[i] = { ...emptyData(), ...(parsed[i] || {}) };
+      return out;
+    } catch(e) {
+      const out = {}; for (let i=1;i<=8;i++) out[i]=emptyData(); return out;
+    }
+  }
+
+  function saveLabels() {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(labels)); } catch(e) {}
+  }
+
+  function loadSettings() {
+    try {
+      let raw = localStorage.getItem(SETTINGS_KEY);
+      if (!raw) {
+        for (const key of LEGACY_SETTINGS_KEYS) {
+          raw = localStorage.getItem(key);
+          if (raw) break;
+        }
+      }
+      const st = JSON.parse(raw || '{}');
+      offsetX.value = st.x ?? 0;
+      offsetY.value = st.y ?? 0;
+    } catch(e) {}
+    applyOffsets();
+  }
+
+  function applyOffsets() {
+    const x = Number(offsetX.value || 0);
+    const y = Number(offsetY.value || 0);
+    document.documentElement.style.setProperty('--offset-x', `${x}mm`);
+    document.documentElement.style.setProperty('--offset-y', `${y}mm`);
+    try { localStorage.setItem(SETTINGS_KEY, JSON.stringify({x,y})); } catch(e) {}
+  }
+
+  function createLabels() {
+    for (let i=1;i<=8;i++) {
+      const el = document.createElement('div');
+      el.className = 'label';
+      el.dataset.num = String(i);
+      el.innerHTML = `
+        <div class="label-number">Наклейка ${i}</div>
+        <div class="label-content">
+          <div class="initial-box"><svg class="initial-svg" viewBox="0 0 31 60" preserveAspectRatio="none" aria-hidden="true"><text class="initial" x="0" y="0"></text></svg></div>
+          <div class="info">
+            <span class="surname"></span>
+            <span class="name"></span>
+            <span class="order"></span>
+            <span class="date"></span>
+          </div>
+        </div>`;
+      el.addEventListener('click', () => selectLabel(i));
+      sheet.appendChild(el);
+    }
+  }
+
+  function getLabelEl(i) { return sheet.querySelector(`.label[data-num="${i}"]`); }
+
+  function hasData(d) {
+    return Boolean((d.surname||'').trim() || (d.name||'').trim() || (d.order||'').trim() || (d.date||'').trim());
+  }
+
+  function fitInitial(el, container) {
+    const value = el.textContent.trim();
+    if (!value) {
+      el.removeAttribute('transform');
+      return;
+    }
+
+    // SVG getBBox() measures the visible glyph itself, not the font line box.
+    // That lets us center Д/Х/Ш/Щ/Ж optically with equal top/bottom margins.
+    el.setAttribute('font-size', '100');
+    el.removeAttribute('transform');
+
+    requestAnimationFrame(() => {
+      let box;
+      try { box = el.getBBox(); } catch (e) { return; }
+      if (!box || !box.width || !box.height) return;
+
+      const vb = el.ownerSVGElement.viewBox.baseVal;
+      const targetW = vb.width * 0.92;   // about 1.2 mm inside the letter block on each side
+      const targetH = vb.height * 0.95;  // about 1.5 mm above and below the visible glyph
+
+      // First make every letter almost full-height.
+      const sy = targetH / box.height;
+      let sx = sy;
+
+      // Wide letters keep the same height and are condensed only as much as needed.
+      if (box.width * sx > targetW) sx = targetW / box.width;
+
+      // Avoid excessive horizontal distortion. If a glyph is exceptionally wide,
+      // reduce the whole glyph a little instead.
+      const minRatio = 0.68;
+      if (sx / sy < minRatio) {
+        sx = sy * minRatio;
+        const uniformDown = targetW / (box.width * sx);
+        sx *= uniformDown;
+        const sy2 = sy * uniformDown;
+        const tx2 = (vb.width - box.width * sx) / 2 - box.x * sx;
+        const ty2 = (vb.height - box.height * sy2) / 2 - box.y * sy2;
+        el.setAttribute('transform', `matrix(${sx} 0 0 ${sy2} ${tx2} ${ty2})`);
+        return;
+      }
+
+      // Center the actual visible glyph exactly inside the physical 31 × 60 mm block.
+      const tx = (vb.width - box.width * sx) / 2 - box.x * sx;
+      const ty = (vb.height - box.height * sy) / 2 - box.y * sy;
+      el.setAttribute('transform', `matrix(${sx} 0 0 ${sy} ${tx} ${ty})`);
+    });
+  }
+
+  function fitSingleLine(el, container, maxMm, minMm) {
+    if (!el.textContent.trim()) return;
+    let lo = minMm, hi = maxMm;
+    for (let k=0;k<14;k++) {
+      const mid=(lo+hi)/2;
+      el.style.fontSize=`${mid}mm`;
+      const r=el.getBoundingClientRect();
+      const cr=container.getBoundingClientRect();
+      if (r.width <= cr.width*.98) lo=mid; else hi=mid;
+    }
+    el.style.fontSize=`${lo}mm`;
+  }
+
+  function formatDate(value) {
+    if (!value) return '';
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+    return m ? `${m[3]}.${m[2]}.${m[1]}` : value;
+  }
+
+  function renderLabel(i) {
+    const d = labels[i];
+    const el = getLabelEl(i);
+    const initial = (d.initial || firstLetter(d.surname)).toUpperCase();
+    el.querySelector('.initial').textContent = initial;
+    el.querySelector('.surname').textContent = (d.surname || '').toUpperCase();
+    el.querySelector('.name').textContent = d.name || '';
+    el.querySelector('.order').textContent = d.order ? `Заказ №${d.order}` : '';
+    el.querySelector('.date').textContent = formatDate(d.date || '');
+    el.querySelector('.surname').style.fontSize = `${Number(d.surnameSize || 7.3)}mm`;
+    el.querySelector('.name').style.fontSize = `${Number(d.nameSize || 6.2)}mm`;
+    el.querySelector('.order').style.fontSize = `${Number(d.orderSize || 5.4)}mm`;
+    el.querySelector('.date').style.fontSize = `${Number(d.dateSize || 4.9)}mm`;
+    el.classList.toggle('has-data', hasData(d));
+    el.classList.toggle('empty', !hasData(d));
+
+    requestAnimationFrame(() => {
+      const initEl = el.querySelector('.initial');
+      const initBox = el.querySelector('.initial-box');
+      fitInitial(initEl, initBox);
+    });
+  }
+
+  function renderAll() {
+    for (let i=1;i<=8;i++) renderLabel(i);
+  }
+
+  function loadForm(i) {
+    const d = labels[i];
+    surnameInput.value = d.surname || '';
+    nameInput.value = d.name || '';
+    orderInput.value = d.order || '';
+    dateInput.value = d.date || '';
+    initialInput.value = d.initial || '';
+    surnameSize.value = d.surnameSize ?? 7.3;
+    nameSize.value = d.nameSize ?? 6.2;
+    orderSize.value = d.orderSize ?? 5.4;
+    dateSize.value = d.dateSize ?? 4.9;
+  }
+
+  function selectLabel(i) {
+    selected = i;
+    document.querySelectorAll('.label').forEach(x => x.classList.toggle('selected', Number(x.dataset.num)===i));
+    loadForm(i);
+    selectedLabelText.textContent = `Выбрана наклейка ${i}. Служебная надпись на самой наклейке скрыта.`;
+    setStatus(`Выбрана наклейка ${i}. Заполните данные справа.`);
+  }
+
+  function saveForm(silent=false) {
+    if (!selected) { setStatus('Сначала выберите наклейку.'); return false; }
+    labels[selected] = {
+      surname: surnameInput.value.trim(),
+      name: nameInput.value.trim(),
+      order: orderInput.value.trim(),
+      date: dateInput.value,
+      initial: initialInput.value.trim().toUpperCase(),
+      surnameSize: Number(surnameSize.value || 7.3),
+      nameSize: Number(nameSize.value || 6.2),
+      orderSize: Number(orderSize.value || 5.4),
+      dateSize: Number(dateSize.value || 4.9)
+    };
+    saveLabels();
+    renderLabel(selected);
+    if (!silent) setStatus(`Наклейка №${selected} сохранена.`);
+    return true;
+  }
+
+  function setStatus(t) {
+    status.textContent = t;
+    clearTimeout(setStatus.timer);
+    setStatus.timer = setTimeout(() => status.textContent='', 3500);
+  }
+
+  document.getElementById('saveBtn').addEventListener('click', () => saveForm(false));
+  document.getElementById('clearBtn').addEventListener('click', () => {
+    if (!selected) { setStatus('Сначала выберите наклейку.'); return; }
+    labels[selected] = emptyData();
+    saveLabels(); renderLabel(selected); loadForm(selected);
+    setStatus(`Наклейка №${selected} очищена.`);
+  });
+  document.getElementById('clearAllBtn').addEventListener('click', () => {
+    if (!confirm('Очистить данные на всех 8 наклейках?')) return;
+    for (let i=1;i<=8;i++) labels[i]=emptyData();
+    saveLabels(); renderAll(); loadForm(selected);
+    setStatus('Весь макет очищен.');
+  });
+
+  document.getElementById('printBtn').addEventListener('click', () => {
+    // If a label is currently open in the editor, save its latest fields first.
+    if (selected) saveForm(true);
+
+    // Print every label on the A4 sheet that contains real data.
+    // Selection is used only for editing and has no effect on printing.
+    document.querySelectorAll('.label').forEach(x => x.classList.remove('print-target'));
+    let count = 0;
+    for (let i=1;i<=8;i++) {
+      if (hasData(labels[i])) {
+        getLabelEl(i).classList.add('print-target');
+        count++;
+      }
+    }
+
+    if (!count) {
+      setStatus('На листе нет заполненных наклеек для печати.');
+      return;
+    }
+
+    setStatus(`Печатаем весь лист: заполнено ${count} из 8 наклеек.`);
+    setTimeout(() => window.print(), 80);
+  });
+
+  window.addEventListener('afterprint', () => {
+    document.querySelectorAll('.label').forEach(x => x.classList.remove('print-target'));
+  });
+
+  [offsetX, offsetY].forEach(el => el.addEventListener('input', applyOffsets));
+
+  // Live preview for current label, without marking anything as used.
+  [surnameInput, nameInput, orderInput, dateInput, initialInput, surnameSize, nameSize, orderSize, dateSize].forEach(el => {
+    el.addEventListener('input', () => {
+      if (!selected) return;
+      labels[selected] = {
+        surname: surnameInput.value,
+        name: nameInput.value,
+        order: orderInput.value,
+        date: dateInput.value,
+        initial: initialInput.value,
+        surnameSize: Number(surnameSize.value || 7.3),
+        nameSize: Number(nameSize.value || 6.2),
+        orderSize: Number(orderSize.value || 5.4),
+        dateSize: Number(dateSize.value || 4.9)
+      };
+      renderLabel(selected);
+    });
+  });
+
+  createLabels();
+  loadSettings();
+  renderAll();
+  setStatus('Выберите нужную наклейку на листе.');
+})();
+</script>
+
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(()=>{}));
+}
+</script>
+</body>
+</html>

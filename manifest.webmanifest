@@ -1,0 +1,10 @@
+{
+  "name": "Печать наклеек A4",
+  "short_name": "Наклейки A4",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#eceff1",
+  "theme_color": "#111111",
+  "lang": "ru",
+  "description": "Печать выбранных данных на готовый лист A4 с 8 наклейками"
+}
