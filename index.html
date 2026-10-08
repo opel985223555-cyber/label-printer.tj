@@ -4,14 +4,16 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <meta name="theme-color" content="#111111" />
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png" />
+<link rel="apple-touch-icon" href="icon-192.png" />
 <link rel="manifest" href="manifest.webmanifest" />
-<title>Печать наклеек A4</title>
+<title>Печать наклеек A4 </title>
 <style>
   :root {
     --page-w: 210mm;
     --page-h: 297mm;
-    --label-w: 97.5mm;
-    --label-h: 68mm;
+    --label-w: 95.5mm;
+    --label-h: 67mm;
     --radius: 7mm;
     --offset-x: 0mm;
     --offset-y: 0mm;
@@ -280,15 +282,15 @@
     line-height: 1.45;
   }
 
-  /* Exact A4 positions: 5 mm margins and 5 mm gutters. */
-  .label[data-num="1"] { left:5mm; top:5mm; }
-  .label[data-num="2"] { left:107.5mm; top:5mm; }
-  .label[data-num="3"] { left:5mm; top:78mm; }
-  .label[data-num="4"] { left:107.5mm; top:78mm; }
-  .label[data-num="5"] { left:5mm; top:151mm; }
+  /* Exact A4 positions: 7 mm outer margins, 5 mm gutters, 95.5 × 67 mm labels. */
+  .label[data-num="1"] { left:7mm; top:7mm; }
+  .label[data-num="2"] { left:107.5mm; top:7mm; }
+  .label[data-num="3"] { left:7mm; top:79mm; }
+  .label[data-num="4"] { left:107.5mm; top:79mm; }
+  .label[data-num="5"] { left:7mm; top:151mm; }
   .label[data-num="6"] { left:107.5mm; top:151mm; }
-  .label[data-num="7"] { left:5mm; top:224mm; }
-  .label[data-num="8"] { left:107.5mm; top:224mm; }
+  .label[data-num="7"] { left:7mm; top:223mm; }
+  .label[data-num="8"] { left:107.5mm; top:223mm; }
 
   @media (max-width: 1150px) {
     .app { grid-template-columns: 1fr; }
@@ -329,7 +331,7 @@
     <div class="topbar">
       <div>
         <h1 class="title">Печать наклеек A4</h1>
-        <div class="hint">8 наклеек · 2 × 4 · отступы и зазоры по 5 мм</div>
+        <div class="hint">8 наклеек · 2 × 4 · поля 7 мм · зазоры 5 мм · 95,5 × 67 мм</div>
       </div>
     </div>
     <div class="sheet-wrap">
@@ -419,10 +421,10 @@
 
 <script>
 (() => {
-  const STORAGE_KEY = 'labelPrinterA4_v7_data';
-  const LEGACY_STORAGE_KEYS = ['labelPrinterA4_data','labelPrinterA4_v6_data','labelPrinterA4_v5_data','labelPrinterA4_v4_data','labelPrinterA4_v3_data','labelPrinterA4_v2_data','labelPrinterA4_v1_data'];
-  const SETTINGS_KEY = 'labelPrinterA4_v7_settings';
-  const LEGACY_SETTINGS_KEYS = ['labelPrinterA4_settings','labelPrinterA4_v6_settings','labelPrinterA4_v5_settings','labelPrinterA4_v4_settings','labelPrinterA4_v3_settings','labelPrinterA4_v2_settings','labelPrinterA4_v1_settings'];
+  const STORAGE_KEY = 'labelPrinterA4_v8_data';
+  const LEGACY_STORAGE_KEYS = ['labelPrinterA4_data','labelPrinterA4_v7_data','labelPrinterA4_v6_data','labelPrinterA4_v5_data','labelPrinterA4_v4_data','labelPrinterA4_v3_data','labelPrinterA4_v2_data','labelPrinterA4_v1_data'];
+  const SETTINGS_KEY = 'labelPrinterA4_v8_settings';
+  const LEGACY_SETTINGS_KEYS = ['labelPrinterA4_settings','labelPrinterA4_v7_settings','labelPrinterA4_v6_settings','labelPrinterA4_v5_settings','labelPrinterA4_v4_settings','labelPrinterA4_v3_settings','labelPrinterA4_v2_settings','labelPrinterA4_v1_settings'];
   const sheet = document.getElementById('sheet');
   const surnameInput = document.getElementById('surnameInput');
   const nameInput = document.getElementById('nameInput');
@@ -737,7 +739,9 @@
 
 <script>
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(()=>{}));
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(() => {});
+  });
 }
 </script>
 </body>

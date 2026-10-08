@@ -1,13 +1,15 @@
-const CACHE = 'label-printer-v7-site-1';
-const ASSETS = ['./', './index.html', './manifest.webmanifest'];
+const CACHE_NAME = 'label-printer-v2-cache';
+const ASSETS = ['./','./index.html','./manifest.webmanifest','./icon-192.png','./icon-512.png'];
 self.addEventListener('install', event => {
-  event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS)));
+  event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(ASSETS)));
   self.skipWaiting();
 });
 self.addEventListener('activate', event => {
-  event.waitUntil(self.clients.claim());
+  event.waitUntil(
+    caches.keys().then(keys => Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))))
+  );
+  self.clients.claim();
 });
 self.addEventListener('fetch', event => {
-  if (event.request.method !== 'GET') return;
-  event.respondWith(caches.match(event.request).then(r => r || fetch(event.request)));
+  event.respondWith(caches.match(event.request).then(resp => resp || fetch(event.request)));
 });

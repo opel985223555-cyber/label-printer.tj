@@ -1,10 +1,24 @@
 {
   "name": "Печать наклеек A4",
-  "short_name": "Наклейки A4",
+  "short_name": "Наклейки",
+  "description": "Программа для печати наклеек на лист A4 2×4, размер 95.5×67 мм.",
   "start_url": "./",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#eceff1",
   "theme_color": "#111111",
-  "lang": "ru",
-  "description": "Печать выбранных данных на готовый лист A4 с 8 наклейками"
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
 }
